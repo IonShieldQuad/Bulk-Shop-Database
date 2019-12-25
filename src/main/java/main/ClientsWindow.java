@@ -7,6 +7,8 @@ import java.sql.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import static main.MainWindow.TITLE;
+
 public class ClientsWindow {
     private JTable clientsTable;
     private JButton createButton;
@@ -25,6 +27,22 @@ public class ClientsWindow {
         initTable();
         
         refreshButton.addActionListener(ev -> updateTable());
+    
+        viewButton.addActionListener(ev -> {
+            int index = clientsTable.getSelectedRow();
+            if (index == -1) {
+                return;
+            }
+        
+            int id = Integer.parseInt(String.valueOf(clientsTable.getModel().getValueAt(index, 0)));
+        
+            JFrame frame = new JFrame(TITLE);
+            ClientViewWindow gui = new ClientViewWindow(id);
+            frame.setContentPane(gui.getRootPanel());
+            frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+            frame.pack();
+            frame.setVisible(true);
+        });
         
         deleteButton.addActionListener(ev -> {
             int index = clientsTable.getSelectedRow();

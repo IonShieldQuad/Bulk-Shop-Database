@@ -1,3 +1,5 @@
 # Project exclude paths
 /out/
 /target/
+Bulk-Shop-Database.db
+/Bulk-Shop-Database.db-journal

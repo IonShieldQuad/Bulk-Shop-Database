@@ -8,6 +8,8 @@ import java.time.format.DateTimeParseException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import static main.MainWindow.TITLE;
+
 public class SuppliesWindow {
     private JTable suppliesTable;
     private JButton createButton;
@@ -30,6 +32,22 @@ public class SuppliesWindow {
         initTable();
         
         refreshButton.addActionListener(ev -> updateTable());
+    
+        viewButton.addActionListener(ev -> {
+            int index = suppliesTable.getSelectedRow();
+            if (index == -1) {
+                return;
+            }
+        
+            int id = Integer.parseInt(String.valueOf(suppliesTable.getModel().getValueAt(index, 0)));
+        
+            JFrame frame = new JFrame(TITLE);
+            SupplyViewWindow gui = new SupplyViewWindow(id);
+            frame.setContentPane(gui.getRootPanel());
+            frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+            frame.pack();
+            frame.setVisible(true);
+        });
         
         deleteButton.addActionListener(ev -> {
             int index = suppliesTable.getSelectedRow();

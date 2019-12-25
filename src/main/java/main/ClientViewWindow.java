@@ -1,5 +1,6 @@
 package main;
 
+import model.Client;
 import model.Item;
 import model.Warehouse;
 
@@ -9,14 +10,16 @@ import javax.swing.table.TableColumn;
 import java.sql.*;
 import java.time.format.DateTimeParseException;
 
-public class ItemViewWindow {
+public class ClientViewWindow {
     private JPanel rootPanel;
     private JButton saveButton;
     private JTextField idField;
     private JTextField nameField;
-    private JTable warehousesTable;
+    private JTable itemsTable;
     private JTextField datetimeField;
     private JButton filterButton;
+    private JTextField itemCountField;
+    private JTextField totalSpendingField;
     
     private int id;
     
@@ -34,22 +37,46 @@ public class ItemViewWindow {
         });
         
         saveButton.addActionListener(ev -> updateDatabase());
-        
     }
     
     private void updateFields() {
-        Item item = Utils.getItem(id);
-        if (item == null) {
+        Client client = Utils.getClient(id);
+        if (client == null) {
             return;
         }
         
-        idField.setText(String.valueOf(item.getId()));
-        nameField.setText(String.valueOf(item.getName()));
+        String sql = "SELECT item_id, sum(count) AS sum, sum(count * item_price) AS total FROM sales WHERE client_id = ?;";
+    
+        try (Connection conn = DriverManager.getConnection(Utils.url);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        
+            Statement s = conn.createStatement();
+            s.execute(Utils.enableFK);
+            s.close();
+            
+            pstmt.setInt(1, id);
+        
+            ResultSet res = pstmt.executeQuery();
+            res.next();
+    
+            totalSpendingField.setText(String.valueOf(res.getInt("total")));
+            itemCountField.setText(String.valueOf(res.getInt("sum")));
+            
+            res.close();
+        
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(null, "Error: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
+        
+        idField.setText(String.valueOf(client.getId()));
+        nameField.setText(String.valueOf(client.getName()));
     }
     
     private void updateDatabase() {
         String name = nameField.getText();
-        String sql = "UPDATE items SET name=? WHERE id=?";
+        String sql = "UPDATE clients SET name=? WHERE id=?";
         
         try (Connection conn = DriverManager.getConnection(Utils.url);
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -79,8 +106,8 @@ public class ItemViewWindow {
                 return false;
             }
         };
-        warehousesTable.setAutoCreateColumnsFromModel(false);
-        warehousesTable.setModel(model);
+        itemsTable.setAutoCreateColumnsFromModel(false);
+        itemsTable.setModel(model);
         
         TableColumn[] columns = new TableColumn[columnCount];
         
@@ -94,56 +121,53 @@ public class ItemViewWindow {
         
         columns[1].setWidth(20);
         columns[1].setHeaderValue("Name");
-    
-        columns[2].setWidth(20);
-        columns[2].setHeaderValue("Address");
         
         columns[2].setWidth(20);
         columns[2].setHeaderValue("Count");
         
         
         for (TableColumn column : columns) {
-            warehousesTable.addColumn(column);
+            itemsTable.addColumn(column);
         }
     }
     
     private void updateTable(long datetime) {
-        DefaultTableModel model = (DefaultTableModel) warehousesTable.getModel();
+        DefaultTableModel model = (DefaultTableModel) itemsTable.getModel();
         for (int i = model.getRowCount() - 1; i >= 0; i--) {
             model.removeRow(i);
         }
         
-        Item item = Utils.getItem(id);
-        if (item == null) {
-            return;
-        }
+        String sql = "SELECT item_id, sum(count) AS sum FROM sales WHERE client_id = ? AND datetime <= ? GROUP BY item_id";
     
-        String sql = "SELECT id FROM warehouses;";
-        
         try (Connection conn = DriverManager.getConnection(Utils.url);
-             PreparedStatement pstmt = conn.prepareStatement(sql);
-             ResultSet res = pstmt.executeQuery()) {
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
         
             Statement s = conn.createStatement();
             s.execute(Utils.enableFK);
             s.close();
+    
+            pstmt.setInt(1, id);
+            pstmt.setLong(2, datetime);
+            
+            ResultSet res = pstmt.executeQuery();
             
             while(res.next()) {
-                int wh_id = res.getInt("id");
-                Warehouse warehouse = Utils.getWarehouse(wh_id, datetime);
-                if (warehouse == null) {
+                int it_id = res.getInt("item_id");
+                Item item = Utils.getItem(it_id);
+                if (item == null) {
                     continue;
                 }
-                int count = 0;
-                count += warehouse.getCountOf(item);
+                int count = res.getInt("sum");
                 if (count > 0) {
                     model.addRow(new Object[] {
-                            warehouse.getId(),
-                            warehouse.getName(),
+                            item.getId(),
+                            item.getName(),
                             count
                     });
                 }
             }
+        
+            res.close();
         
         } catch (SQLException e) {
             System.out.println(e.getMessage());
@@ -153,7 +177,7 @@ public class ItemViewWindow {
         
     }
     
-    public ItemViewWindow(int id) {
+    public ClientViewWindow(int id) {
         this.id = id;
         initComponents();
         updateTable(Utils.parseDatetime(""));
